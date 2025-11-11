@@ -6,7 +6,7 @@
 ![WPScan API](https://img.shields.io/badge/WPScan-API-red.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-A Burp Suite extension that passively detects WordPress sites during web application testing, scans them for known vulnerabilities using the WPScan API, and generates AI-ready penetration testing reports.
+A Burp Suite extension that detects WordPress sites during web application testing (passive detection + active verification), performs comprehensive security assessments including WordPress core, plugin, and theme vulnerability scanning via WPScan API, tests for XML-RPC/REST API exposure, enumerates users, checks plugin versions, and generates AI-ready penetration testing reports.
 
 **Compatible with both Burp Suite Community and Professional editions.**
 
@@ -35,23 +35,46 @@ A Burp Suite extension that passively detects WordPress sites during web applica
 
 ## Features
 
-- **Live WordPress Detection**: Automatically identifies WordPress sites from real-time HTTP traffic
+### Detection & Discovery
+- **Live WordPress Detection**: Passively identifies WordPress sites from real-time HTTP traffic
 - **HTTP History Scanning**: Scan Burp's HTTP history to find WordPress sites from past traffic (marked with [HTTP HISTORY] label)
-- **Bulk URL Import**: Paste multiple URLs directly into the UI for batch WordPress detection
-- **API Credit Counter**: Real-time tracking of daily API usage (resets at midnight)
-- **WPScan API Integration**: Queries the WPScan vulnerability database for WordPress core vulnerabilities
+- **Bulk URL Import**: Actively verifies and imports multiple URLs for batch WordPress detection
+- **Plugin/Theme Discovery**: Extracts plugins and themes from HTTP responses and history
+- **Version Detection**: Identifies WordPress core version from multiple sources (meta tags, feeds, API)
+
+### Vulnerability Scanning
+- **WPScan API Integration**: Queries the WPScan vulnerability database for:
+  - **WordPress Core vulnerabilities**
+  - **Plugin vulnerabilities** (80+ high-risk plugins + up to 3 others)
+  - **Theme vulnerabilities**
 - **Real-Time Vulnerability Details**: Shows vulnerability title and type immediately as each component is scanned
 - **Smart Plugin Scanning**: Scans ALL 80+ high-risk plugins + up to 3 others (saves 60-80% API credits)
 - **24-Hour API Cache**: Never re-scan the same plugin/theme twice in 24 hours (persistent across Burp restarts)
-- **XML-RPC Security Testing**: Detects enabled XML-RPC with pingback/multicall vulnerabilities (DDoS & brute force risks)
-- **REST API Discovery**: Identifies accessible WordPress REST API endpoints and user enumeration vectors
+
+### Security Assessments
+- **XML-RPC Security Testing**: 
+  - Detects if XML-RPC endpoint is enabled
+  - Tests for pingback.ping method (DDoS amplification risk)
+  - Tests for system.multicall method (brute force amplification risk)
+- **REST API Discovery**: 
+  - Enumerates accessible WordPress REST API endpoints (/wp-json/wp/v2/)
+  - Tests users, posts, pages, and media endpoints
+  - Flags user enumeration vulnerabilities
+- **User Enumeration**:
+  - Attempts user enumeration via REST API (/wp-json/wp/v2/users)
+  - Falls back to author redirect method (?author=N)
+  - Extracts usernames and IDs for reconnaissance
 - **Plugin Update Monitoring**: Checks plugins against WordPress.org for latest versions (no API credits used)
+- **Security Hardening Detection**: Identifies security plugins and hardening measures
+
+### Workflow & Management
 - **Dual Detection Modes**: Live scanning + HTTP history scanning work independently
+- **API Credit Counter**: Real-time tracking of daily API usage (resets at midnight)
 - **Status Tracking**: Tag sites as Scanned, Vulnerable, or False Positive with persistent storage
 - **Export Reports**: Generate structured JSON, formatted Markdown, and AI-ready prompts
 - **URL Normalization**: Automatically normalizes subdomains to root domains (cd.krytter.com → krytter.com)
 - **Protocol Support**: Handles both HTTP and HTTPS versions of the same site
-- **Visual Indicators**: Color-coded status with [HTTP HISTORY] labels in blue
+- **Visual Indicators**: Color-coded status with [HTTP HISTORY] and [IMPORTED] labels
 
 ## Installation
 
