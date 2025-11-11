@@ -1,12 +1,14 @@
 # BurpWpsScan
 
 ![Python](https://img.shields.io/badge/Python-2.7-blue.svg)
-![Burp Suite](https://img.shields.io/badge/Burp%20Suite-Professional-orange.svg)
+![Burp Suite](https://img.shields.io/badge/Burp%20Suite-Community%20%7C%20Professional-orange.svg)
 ![WordPress](https://img.shields.io/badge/WordPress-Security-green.svg)
 ![WPScan API](https://img.shields.io/badge/WPScan-API-red.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
-A Burp Suite Professional extension that passively detects WordPress sites during web application testing, scans them for known vulnerabilities using the WPScan API, and generates AI-ready penetration testing reports.
+A Burp Suite extension that passively detects WordPress sites during web application testing, scans them for known vulnerabilities using the WPScan API, and generates AI-ready penetration testing reports.
+
+**Compatible with both Burp Suite Community and Professional editions.**
 
 ## Screenshots
 
@@ -54,7 +56,7 @@ A Burp Suite Professional extension that passively detects WordPress sites durin
 ## Installation
 
 ### Prerequisites
-- Burp Suite Professional (tested on v2023.x+)
+- Burp Suite Community or Professional (tested on v2023.x+)
 - WPScan API key (free tier available at https://wpscan.com/api)
 
 ### Steps
@@ -304,7 +306,7 @@ The extension uses intelligent strategies to minimize API consumption:
 ## Troubleshooting
 
 ### Extension won't load
-- Verify Burp Suite Professional (not Community Edition)
+- Works with both Community and Professional editions
 - Check Python environment in Burp: `Extensions` → `Options` → `Python Environment`
 - Review error messages in `Extensions` → `Errors`
 
