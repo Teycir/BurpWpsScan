@@ -403,46 +403,6 @@ MIT License - see [LICENSE](LICENSE) file for details
 
 See [CHANGELOG.md](CHANGELOG.md) for version history and updates.
 
-## Technical Details
-
-### Detection Patterns
-- Request URLs: `/wp-content/`, `/wp-includes/`, `/wp-admin/`, `/wp-json/`
-- Response bodies: WordPress themes, plugins, meta tags
-- HTTP headers: WordPress indicators
-
-### Security Testing Architecture
-- **XML-RPC testing**: Direct POST request to `/xmlrpc.php` with `system.listMethods` call
-- **REST API discovery**: GET requests to common `/wp-json/wp/v2/` endpoints
-- **Plugin updates**: WordPress.org API queries (separate from WPScan)
-
-### Separation of Concerns
-- Live scanning and HTTP history use independent logic
-- HTTP history maintains its own duplicate tracking
-- Sites from HTTP history visually distinguished with labels
-- Both detection methods coexist without interference
-- Security tests run independently of vulnerability scanning
-
-## Roadmap
-
-- [x] HTTP History scanning
-- [x] Visual labels for detection source
-- [x] URL normalization to root domains
-- [x] Smart plugin prioritization (80+ high-risk plugins)
-- [x] 24-hour API response caching
-- [x] Comprehensive high-risk plugin scanning (all 80+ plugins)
-- [x] Plugin/theme vulnerability scanning
-- [x] API credit counter with daily tracking
-- [x] Bulk URL import from clipboard
-- [x] Real-time vulnerability details in scan output
-- [x] XML-RPC security assessment
-- [x] REST API endpoint discovery & testing
-- [x] Plugin/theme update monitoring
-- [ ] OpenRouter AI integration
-- [ ] Automated PoC generation
-- [ ] HTML report export
-- [ ] Configurable scan depth (UI option)
-
----
 
 **Version**: 1.3.1  
 **Author**: Teycir (teycirbensoltane.tn)  
@@ -451,52 +411,3 @@ See [CHANGELOG.md](CHANGELOG.md) for version history and updates.
 ---
 
 **Made by Teycir** | [teycirbensoltane.tn](https://teycirbensoltane.tn)
-
-## Performance Notes
-
-### API Credit Efficiency
-- **Smart scanning** reduces API usage by 60-90%
-- **Comprehensive coverage** scans all high-risk plugins without missing vulnerabilities
-- **Cache hit rate** improves over time (more sites scanned = more cache hits)
-- **Free tier (25 calls/day)** can now scan 3-25 sites instead of 1-2 sites
-- **Logs show cache usage** with `[CACHE]` prefix for transparency
-
-### Cache Management
-- Cache file: `C:\burpwpscan_exports\wpsscan_api_cache.json` (Windows) or `/tmp/burpwpscan_exports/wpsscan_api_cache.json` (Linux/Mac)
-- Automatically loads on startup
-- Saves after each scan
-- 24-hour TTL (time-to-live)
-- Delete cache file to force fresh scans
-
-### Scan Output Details
-- **Real-time feedback**: Vulnerability details shown immediately during scan
-- **Security tests**: XML-RPC and REST API findings displayed first
-- **Core vulnerabilities**: Displayed with title and type after API query
-- **Plugin vulnerabilities**: Shown for each plugin as it's scanned
-- **Theme vulnerabilities**: Displayed for each theme as it's scanned
-- **Plugin updates**: Latest versions from WordPress.org displayed
-- **Clean results**: Plugins/themes with 0 vulnerabilities marked as "(clean)"
-- **Comprehensive summary**: Final summary section provides overview of all findings
-
-## New Security Features (v1.3.0)
-
-### XML-RPC Security Assessment
-Automatically tests the `/xmlrpc.php` endpoint for:
-- **Enabled status**: Detects if XML-RPC is accessible
-- **Pingback method**: Flags DDoS amplification risk via `pingback.ping`
-- **Multicall method**: Identifies brute force amplification via `system.multicall`
-- **Zero API credits**: Uses direct HTTP requests, no WPScan API calls
-
-### REST API Endpoint Discovery
-Comprehensive WordPress REST API testing:
-- **Endpoint enumeration**: Tests `/wp-json/wp/v2/` endpoints (users, posts, pages, media)
-- **User enumeration**: Flags accessible user endpoints for reconnaissance
-- **Post exposure**: Identifies publicly accessible content endpoints
-- **Zero API credits**: Direct endpoint testing, no WPScan API usage
-
-### Plugin Update Monitoring
-Proactive security through version tracking:
-- **Latest versions**: Queries WordPress.org API for current plugin versions
-- **Outdated detection**: Identifies plugins that may need updates
-- **Top 10 plugins**: Checks first 10 detected plugins to avoid rate limits
-- **Zero WPScan credits**: Uses free WordPress.org API instead
