@@ -101,6 +101,13 @@ A Burp Suite extension that passively detects WordPress sites during web applica
 4. Can add sites even if they already exist from live scanning
 5. Useful for finding WordPress sites from previous sessions
 
+**Why HTTP History Scan is Powerful:**
+- **Discovers More Plugins**: Homepage often loads only 2-3 plugins, but browsing multiple pages (shop, blog, contact) loads different plugins
+- **Example**: Homepage might show `contact-form-7`, but the shop page loads `woocommerce`, checkout loads `stripe`, blog loads `yoast-seo`
+- **Better Coverage**: Scanning HTTP history after browsing 5-10 pages can discover 10-20+ plugins vs 2-3 from homepage alone
+- **Saves API Credits**: More plugins found = more accurate vulnerability assessment without re-scanning
+- **Best Practice**: Browse the target site thoroughly through Burp Proxy, then click "Scan HTTP History" before running WPScan
+
 ### Bulk URL Import
 
 1. Click "Import URLs" button
