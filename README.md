@@ -113,8 +113,12 @@ A Burp Suite extension that passively detects WordPress sites during web applica
 1. Click "Import URLs" button
 2. Paste URLs into the text area (one per line)
 3. Click "Import" to add them to the scan list
-4. Supports both HTTP and HTTPS URLs
-5. Perfect for importing targets from reconnaissance tools (subfinder, amass, etc.)
+4. Extension automatically verifies each URL is a valid WordPress site before importing
+5. Only confirmed WordPress sites are added to the scanner
+6. Supports both HTTP and HTTPS URLs
+7. Perfect for importing targets from reconnaissance tools (subfinder, amass, etc.)
+
+**Note**: The extension sends HTTP requests to verify WordPress signatures (wp-content, wp-includes, etc.) before adding URLs. Non-WordPress sites are automatically filtered out.
 
 ### Manual Scanning
 
