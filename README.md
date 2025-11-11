@@ -89,8 +89,8 @@ A Burp Suite extension that passively detects WordPress sites during web applica
 ### Live Detection
 
 1. Ensure "Live Scan: ON" button is active (green)
-2. Browse target websites through Burp Proxy
-3. Extension automatically detects WordPress sites in real-time
+2. Browse target websites through Burp (Proxy, Repeater, Scanner, etc.)
+3. Extension automatically monitors HTTP traffic and detects WordPress sites in real-time
 4. Detected sites appear in the WpsScan tab list
 
 ### HTTP History Scanning
