@@ -122,15 +122,13 @@ A Burp Suite extension that passively detects WordPress sites during web applica
 
 ### Manual Scanning
 
-**Option 1 - Right-click menu**:
-1. Right-click on a detected WordPress site in the list
-2. Select "Scan with WPScan"
+**Option 1 - Double-click**:
+1. Double-click on a detected WordPress site in the list
+2. Confirm scan in the dialog
 3. Wait for scan to complete
 
 **Option 2 - Button interface**:
-1. Select a site from the list
-2. Click "Scan Selected" button
-3. Or click "Scan All" to scan all detected sites
+1. Click "Scan All" to scan all detected sites
 
 ### Scan Output
 
@@ -168,6 +166,7 @@ The extension provides detailed real-time feedback during scans:
 ### Visual Indicators
 
 - **[HTTP HISTORY]**: Blue label indicates site was found via HTTP history scan
+- **[IMPORTED]**: Purple label indicates site was imported via bulk URL import
 - **Color-coded rows**:
   - Yellow: Currently scanning
   - Green: Scan completed
@@ -198,17 +197,18 @@ The extension provides detailed real-time feedback during scans:
 
 - **Search box**: Filter sites by URL
 - **Sort dropdown**: Sort by Default, Host, Status, or Detection Time
-- **Filter dropdown**: Show All, Detected Only, Scanned Only, or Vulnerable Only
 
 ### API Credit Tracking
 
-- **Real-time counter**: Displays "API Calls: X" in the top bar
-- **Color indicators**:
+- **Websites Scanned counter**: Displays "Websites Scanned: X" - tracks number of sites scanned
+- **API Credits counter**: Displays "API Credits: X" - tracks actual API calls made
+- **Color indicators** (for API Credits):
   - Green: 0-19 calls (safe)
   - Orange: 20-24 calls (warning)
   - Red: 25+ calls (limit reached)
-- **Auto-reset**: Counter resets at midnight (00:00)
+- **Auto-reset**: Counters reset at midnight (00:00)
 - **Persistent**: Survives Burp restarts
+- **Manual reset**: Use "Reset" button to clear both counters
 
 ## Report Formats
 
