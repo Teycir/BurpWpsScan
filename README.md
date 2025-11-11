@@ -63,7 +63,7 @@ A Burp Suite extension that passively detects WordPress sites during web applica
 
 1. **Clone or download this repository**:
    ```bash
-   git clone https://github.com/yourusername/BurpWpsScan.git
+   git clone https://github.com/Teycir/BurpWpsScan.git
    cd BurpWpsScan
    ```
 
@@ -361,9 +361,9 @@ MIT License - see [LICENSE](LICENSE) file for details
 
 ## Support
 
-- **Issues**: https://github.com/yourusername/BurpWpsScan/issues
-- **Discussions**: https://github.com/yourusername/BurpWpsScan/discussions
-- **Email**: your.email@example.com
+- **Issues**: https://github.com/Teycir/BurpWpsScan/issues
+- **Discussions**: https://github.com/Teycir/BurpWpsScan/discussions
+- **Email**: teycir@pxdmail.net
 
 ## Changelog
 
@@ -411,8 +411,12 @@ See [CHANGELOG.md](CHANGELOG.md) for version history and updates.
 ---
 
 **Version**: 1.3.1  
-**Author**: Teycir  
+**Author**: Teycir (teycirbensoltane.tn)  
 **Last Updated**: 2025-11-17
+
+---
+
+**Made by Teycir** | [teycirbensoltane.tn](https://teycirbensoltane.tn)
 
 ## Performance Notes
 
