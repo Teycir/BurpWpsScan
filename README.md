@@ -56,13 +56,14 @@ A Burp Suite extension that detects WordPress sites during web application testi
 ## Features
 
 ### Detection & Discovery
-- **Live WordPress Detection**: Passively identifies WordPress sites from real-time HTTP traffic
+- **Live WordPress Detection**: Passively identifies WordPress sites from real-time HTTP traffic (preserves subdomains)
 - **HTTP History Scanning**: Scan Burp's HTTP history to find WordPress sites from past traffic (marked with [HTTP HISTORY] label)
 - **Right-Click Context Menu**: Manually scan specific URLs from Burp history, Repeater, or Proxy by right-clicking and selecting "Scan with WpsScan"
 - **Bulk URL Import**: Actively verifies and imports multiple URLs for batch WordPress detection
 - **Plugin/Theme Discovery**: Extracts plugins and themes from HTTP responses and history
 - **Version Detection**: Identifies WordPress core version from multiple sources (meta tags, feeds, API)
-- **Subdomain Support**: Preserves full hostname when using context menu or HTTP history scan (e.g., `xxx.yyy.io` stays as `xxx.yyy.io`)
+- **Subdomain Support**: All entry points preserve full hostname including subdomains (e.g., `xxx.yyy.io` stays as `xxx.yyy.io`)
+- **Path Preservation**: Context menu preserves full URL path for subdirectory installations (e.g., `https://xxx.yyy.io/blog`)
 
 ### Vulnerability Scanning
 - **WPScan API Integration**: Queries the WPScan vulnerability database for:
@@ -95,7 +96,7 @@ A Burp Suite extension that detects WordPress sites during web application testi
 - **API Credit Counter**: Real-time tracking of daily API usage (resets at midnight)
 - **Status Tracking**: Tag sites as Scanned, Vulnerable, or False Positive with persistent storage
 - **Export Reports**: Generate structured JSON, formatted Markdown, and AI-ready prompts
-- **Smart URL Handling**: Context menu and HTTP history scan preserve subdomains; live scan normalizes to root domain for efficiency
+- **Smart URL Handling**: All entry points (live scan, HTTP history scan, context menu) preserve full hostname and path
 - **Protocol Support**: Handles both HTTP and HTTPS versions of the same site
 - **Visual Indicators**: Color-coded status with [HTTP HISTORY] and [IMPORTED] labels
 
@@ -159,17 +160,20 @@ A Burp Suite extension that detects WordPress sites during web application testi
 
 1. Right-click on any request in Burp (HTTP history, Repeater, Intruder, or Proxy)
 2. Select "Scan with WpsScan: [URL]" from the context menu
-3. The URL is added to the scan list with its full hostname preserved
-4. Useful for:
+3. The URL is added to the scan list with its full hostname and path preserved
+4. Select the new entry in the list and click "Scan Selected" to start the scan
+5. Useful for:
    - Scanning specific subdomains when root domain is not WordPress
    - Manually adding URLs that weren't auto-detected
    - Testing individual endpoints from Repeater
    - Scanning sites discovered via other tools
+   - Scanning WordPress installations in subdirectories (e.g., `example.com/blog`)
 
 **When to Use Context Menu:**
 - When the WordPress site is on a subdomain (e.g., `blog.example.com`) and the root domain is not WordPress
 - When auto-detection missed a site due to custom configurations
 - When you want to scan a specific URL without scanning all of Burp history
+- When WordPress is installed in a subdirectory path
 
 ### Bulk URL Import
 

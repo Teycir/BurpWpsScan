@@ -9,16 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Right-Click Context Menu**: Added context menu integration to manually scan specific URLs from Burp history, Repeater, or Proxy
-  - Right-click any request in Burp and select "Scan with WpsScan: [URL]"
-  - Preserves full hostname including subdomains
+  - Right-click any request in Burp and select "Scan with Wpscan: [URL]"
+  - Preserves full URL including path (e.g., `https://xxx.yyy.io/blog`)
   - Works from HTTP history, Repeater, Intruder, and Proxy tabs
+  - Detects duplicate URLs and warns user instead of silently failing
 
 ### Fixed
-- **Subdomain Handling**: Fixed URL normalization that was incorrectly stripping subdomains
+- **Subdomain Handling**: Fixed URL normalization that was incorrectly stripping subdomains across all entry points
   - Previously: `xxx.yyy.io` → `yyy.io` (breaking subdomain scans)
-  - Now: Preserves full hostname when manually added via context menu or HTTP history scan
-  - Live scan still normalizes to root domain for efficiency (unless using context menu)
-- **HTTP History Scan**: HTTP history scan now preserves subdomains instead of normalizing to root domain
+  - Now: All entry points (live scan, HTTP history scan, context menu) preserve full hostname including subdomains
+- **HTTP History Scan Crash**: Fixed NameError when `response_str` was unassigned when WordPress detected from request URL alone
+  - Now always initializes `response_str` and fetches response body even when detection is from URL
+  - Prevents history scan from aborting silently
+- **Context Menu Path Preservation**: Context menu now uses full request URL instead of just scheme://host
+  - Previously: `https://xxx.yyy.io/blog` → `https://xxx.yyy.io` (lost path)
+  - Now: Preserves complete URL path for subdirectory WordPress installations
+- **Context Menu Duplicate Detection**: Added check to prevent adding duplicate URLs via context menu
+  - Now shows "Already Exists" dialog instead of silently returning
 
 ### Planned
 - OpenRouter AI integration for automated vulnerability analysis

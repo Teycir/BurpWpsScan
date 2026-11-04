@@ -1545,15 +1545,9 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
                     try:
                         http_service = item.getHttpService()
                         if http_service:
-                            protocol = http_service.getProtocol()
-                            host = http_service.getHost()
-                            port = http_service.getPort()
-                            
-                            # Build URL
-                            if (protocol == "https" and port == 443) or (protocol == "http" and port == 80):
-                                url = "{}://{}".format(protocol, host)
-                            else:
-                                url = "{}://{}:{}".format(protocol, host, port)
+                            # Get full URL from request to preserve path
+                            request_info = self._helpers.analyzeRequest(item)
+                            url = str(request_info.getUrl())
                             
                             # Add menu item to scan this specific URL
                             menu_item = JMenuItem("Scan with WpsScan: {}".format(url))
@@ -1623,12 +1617,12 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
                 wp_base = self._extract_wp_base(req_url)
                 if wp_base:
                     url = wp_base
-                
-                normalized = self._normalize_url(url)
+
+                normalized = self._normalize_url(url, keep_subdomain=True)
                 if version_match:
                     self.cached_versions[normalized] = version_match.group(1)
-                
-                self._add_wp_site(url, host)
+
+                self._add_wp_site(url, host, keep_subdomain=True)
         except AttributeError as e:
             self._callbacks.printError("[!] processHttpMessage attribute error: {}".format(str(e)))
         except TypeError as e:
@@ -2436,6 +2430,9 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
                 # Check request URL for WordPress indicators
                 wp_detected = self._extract_wp_base(req_url) is not None
                 
+                # Initialize response_str for version caching
+                response_str = ""
+                
                 # If not found in URL, check response
                 if not wp_detected:
                     response = item.getResponse()
@@ -2457,6 +2454,11 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
                                 self._callbacks.printError("[!] History header attribute error: {}".format(str(e)))
                             except TypeError as e:
                                 self._callbacks.printError("[!] History header type error: {}".format(str(e)))
+                else:
+                    # wp_detected from URL, still get response for version caching
+                    response = item.getResponse()
+                    if response:
+                        response_str = self._helpers.bytesToString(response)
                 
                 if wp_detected:
                     service = item.getHttpService()
@@ -2537,19 +2539,32 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
             if not match:
                 self._callbacks.printError("[!] Invalid URL: {}".format(url))
                 return
-            
+
             host = match.group(1)
-            
+
+            # Check if URL already exists
+            normalized = self._normalize_url(url, keep_subdomain=True)
+            if normalized in self.wp_sites:
+                JOptionPane.showMessageDialog(
+                    self._panel,
+                    "{} is already in the scan list.\n\n"
+                    "Select it from the list and click 'Scan Selected' to scan it.".format(url),
+                    "Already Exists",
+                    JOptionPane.INFORMATION_MESSAGE
+                )
+                return
+
             # Add site with subdomain preserved
             self._add_wp_site(url, host, from_history=False, from_import=False, keep_subdomain=True)
-            
+
             self._log("[+] Manually added: {}".format(url))
             self._callbacks.printOutput("[+] Manually added WordPress site: {}".format(url))
-            
+
             JOptionPane.showMessageDialog(
                 self._panel,
                 "Added {} to scan list.\n\n"
-                "This URL will be scanned with its full hostname preserved (subdomain included).".format(url),
+                "Select it from the list and click 'Scan Selected' to scan it.\n\n"
+                "This URL will be scanned with its full hostname and path preserved.".format(url),
                 "Site Added",
                 JOptionPane.INFORMATION_MESSAGE
             )
