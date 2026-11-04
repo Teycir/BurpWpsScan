@@ -1,7 +1,7 @@
 # pylint: disable=import-error,consider-using-f-string,too-many-nested-blocks
 # type: ignore
-from burp import IBurpExtender, ITab, IHttpListener  # type: ignore
-from javax.swing import JPanel, JButton, JList, JScrollPane, DefaultListModel, JOptionPane, BorderFactory, ListCellRenderer, JLabel, JCheckBox, BoxLayout, Box, JTextField, JComboBox, JTextArea, JSplitPane, SwingUtilities  # type: ignore
+from burp import IBurpExtender, ITab, IHttpListener, IContextMenuFactory  # type: ignore
+from javax.swing import JPanel, JButton, JList, JScrollPane, DefaultListModel, JOptionPane, BorderFactory, ListCellRenderer, JLabel, JCheckBox, BoxLayout, Box, JTextField, JComboBox, JTextArea, JSplitPane, SwingUtilities, JMenuItem  # type: ignore
 from java.awt import BorderLayout, GridLayout, Color, Font, FlowLayout  # type: ignore
 from javax.swing.event import DocumentListener  # type: ignore
 from java.awt.event import MouseAdapter  # type: ignore
@@ -1346,7 +1346,7 @@ class SearchListener(DocumentListener):
         """Handle text change."""
         self.extender._apply_filters()
 
-class BurpExtender(IBurpExtender, ITab, IHttpListener):
+class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
     """Main Burp Suite extension for WordPress vulnerability scanning."""
     def registerExtenderCallbacks(self, callbacks):  # pylint: disable=invalid-name
         """Initialize the extension."""
@@ -1508,6 +1508,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener):
         self.site_list.addListSelectionListener(lambda e: self._on_selection_change() if not e.getValueIsAdjusting() else None)
         
         callbacks.registerHttpListener(self)
+        callbacks.registerContextMenuFactory(self)
         callbacks.addSuiteTab(self)
         
         self._callbacks.printOutput("[+] WpsScan extension loaded successfully")
@@ -1528,6 +1529,43 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener):
     def getUiComponent(self):  # pylint: disable=invalid-name
         """Return UI component."""
         return self._panel
+    
+    def createMenuItems(self, invocation):  # pylint: disable=invalid-name
+        """Create context menu items for selected Burp requests."""
+        menu_items = []
+        
+        try:
+            selection = invocation.getSelection()
+            if not selection:
+                return menu_items
+            
+            # Only add menu items if something is selected
+            if selection and len(selection) > 0:
+                for item in selection:
+                    try:
+                        http_service = item.getHttpService()
+                        if http_service:
+                            protocol = http_service.getProtocol()
+                            host = http_service.getHost()
+                            port = http_service.getPort()
+                            
+                            # Build URL
+                            if (protocol == "https" and port == 443) or (protocol == "http" and port == 80):
+                                url = "{}://{}".format(protocol, host)
+                            else:
+                                url = "{}://{}:{}".format(protocol, host, port)
+                            
+                            # Add menu item to scan this specific URL
+                            menu_item = JMenuItem("Scan with WpsScan: {}".format(url))
+                            menu_item.addActionListener(lambda e, u=url: self._manual_scan_url(u))
+                            menu_items.append(menu_item)
+                            break  # Only add one menu item even if multiple selected
+                    except AttributeError:
+                        continue
+        except Exception as e:
+            self._callbacks.printError("[!] Context menu error: {}".format(str(e)))
+        
+        return menu_items
     
     def processHttpMessage(self, toolFlag, messageIsRequest, messageInfo):  # pylint: disable=invalid-name
         """Process HTTP messages for WordPress detection."""
@@ -1659,25 +1697,30 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener):
             self._callbacks.printError("[!] _get_root_domain error: {}".format(str(e)))
             return url
     
-    def _normalize_url(self, url):
-        """Normalize URL to root domain, keeping protocol"""
+    def _normalize_url(self, url, keep_subdomain=False):
+        """Normalize URL to root domain, keeping protocol. If keep_subdomain=True, preserves full hostname."""
         # Remove port if standard
         url = re.sub(r':443$', '', url)
         url = re.sub(r':80$', '', url)
         # Remove trailing slash
         url = url.rstrip('/')
         
-        # Extract protocol and root domain
+        # Extract protocol and hostname
         match = re.match(r'(https?)://([^/:]+)', url)
         if match:
             protocol = match.group(1)
-            root = self._get_root_domain(url)
-            return "{}://{}".format(protocol, root)
+            if keep_subdomain:
+                # Keep full hostname (e.g., xxx.yyy.io)
+                return "{}://{}".format(protocol, match.group(2))
+            else:
+                # Normalize to root domain (e.g., yyy.io)
+                root = self._get_root_domain(url)
+                return "{}://{}".format(protocol, root)
         return url
     
-    def _add_wp_site(self, url, host, from_history=False, from_import=False):
-        # Normalize to root domain
-        normalized = self._normalize_url(url)
+    def _add_wp_site(self, url, host, from_history=False, from_import=False, keep_subdomain=False):
+        # Normalize to root domain or keep subdomain if specified
+        normalized = self._normalize_url(url, keep_subdomain=keep_subdomain)
         
         # For HTTP history or import, allow adding even if it exists
         if normalized in self.wp_sites and not from_history and not from_import:
@@ -1691,10 +1734,11 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener):
             "scan_result": None
         }
         
-        root = self._get_root_domain(normalized)
+        # Use the actual host from the URL, not the root domain, for consistency
+        display_host = host if keep_subdomain else self._get_root_domain(normalized)
         key = "[{}] {} - Detected - {}".format(len(self.wp_sites), normalized, timestamp)
         self.list_model.addElement(key)
-        self.all_sites_data.append({"key": key, "url": normalized, "host": root, "status": "Detected", "time": timestamp})
+        self.all_sites_data.append({"key": key, "url": normalized, "host": display_host, "status": "Detected", "time": timestamp})
         
         if from_history:
             self.http_history_indices.add(len(self.all_sites_data) - 1)
@@ -2430,7 +2474,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener):
                     if wp_base:
                         url = wp_base
                     
-                    normalized = self._normalize_url(url)
+                    normalized = self._normalize_url(url, keep_subdomain=True)
                     
                     # Cache version if found
                     for pattern in PatternCache.VERSION_PATTERNS:
@@ -2441,7 +2485,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener):
                     
                     if normalized not in found_sites:
                         found_sites.add(normalized)
-                        self._add_wp_site(url, host, from_history=True)
+                        self._add_wp_site(url, host, from_history=True, keep_subdomain=True)
             except AttributeError as e:
                 self._callbacks.printError("[!] History scan attribute error: {}".format(str(e)))
             except TypeError as e:
@@ -2484,6 +2528,34 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener):
                 "No Sites Found",
                 JOptionPane.INFORMATION_MESSAGE
             )
+    
+    def _manual_scan_url(self, url):
+        """Manually add a URL for scanning (preserves subdomain)"""
+        try:
+            # Extract host from URL
+            match = re.match(r'https?://([^/:]+)', url)
+            if not match:
+                self._callbacks.printError("[!] Invalid URL: {}".format(url))
+                return
+            
+            host = match.group(1)
+            
+            # Add site with subdomain preserved
+            self._add_wp_site(url, host, from_history=False, from_import=False, keep_subdomain=True)
+            
+            self._log("[+] Manually added: {}".format(url))
+            self._callbacks.printOutput("[+] Manually added WordPress site: {}".format(url))
+            
+            JOptionPane.showMessageDialog(
+                self._panel,
+                "Added {} to scan list.\n\n"
+                "This URL will be scanned with its full hostname preserved (subdomain included).".format(url),
+                "Site Added",
+                JOptionPane.INFORMATION_MESSAGE
+            )
+        except Exception as e:
+            self._callbacks.printError("[!] Manual scan error: {}".format(str(e)))
+
     
     def _log(self, message):
         """Add message to log area"""

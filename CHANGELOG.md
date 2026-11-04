@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Right-Click Context Menu**: Added context menu integration to manually scan specific URLs from Burp history, Repeater, or Proxy
+  - Right-click any request in Burp and select "Scan with WpsScan: [URL]"
+  - Preserves full hostname including subdomains
+  - Works from HTTP history, Repeater, Intruder, and Proxy tabs
+
+### Fixed
+- **Subdomain Handling**: Fixed URL normalization that was incorrectly stripping subdomains
+  - Previously: `xxx.yyy.io` → `yyy.io` (breaking subdomain scans)
+  - Now: Preserves full hostname when manually added via context menu or HTTP history scan
+  - Live scan still normalizes to root domain for efficiency (unless using context menu)
+- **HTTP History Scan**: HTTP history scan now preserves subdomains instead of normalizing to root domain
+
 ### Planned
 - OpenRouter AI integration for automated vulnerability analysis
 - Automated PoC script generation
