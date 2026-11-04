@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Planned
+- OpenRouter AI integration for automated vulnerability analysis
+- Automated PoC script generation
+- HTML report export format
+- Continuous monitoring mode with notifications
+- Settings dialog for configuration
+- Integration with Burp Scanner findings
+
+---
+
+## [1.4.0] - 2026-11-04
+
 ### Added
 - **Right-Click Context Menu**: Added context menu integration to manually scan specific URLs from Burp history, Repeater, or Proxy
   - Right-click any request in Burp and select "Scan with Wpscan: [URL]"
@@ -26,14 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Now: Preserves complete URL path for subdirectory WordPress installations
 - **Context Menu Duplicate Detection**: Added check to prevent adding duplicate URLs via context menu
   - Now shows "Already Exists" dialog instead of silently returning
-
-### Planned
-- OpenRouter AI integration for automated vulnerability analysis
-- Automated PoC script generation
-- HTML report export format
-- Continuous monitoring mode with notifications
-- Settings dialog for configuration
-- Integration with Burp Scanner findings
+- **URL Path and Port Preservation**: `keep_subdomain` normalization now keeps the path and any non-standard port (`https://xxx.yyy.io:8443/blog`) instead of rebuilding `scheme://host`
+  - Default ports (`:443` on https, `:80` on http) are still stripped; query strings and fragments are dropped so probe URLs stay valid
+  - Context menu reduces a deep request URL to the WordPress base (`/blog/wp-admin/admin-ajax.php` -> `/blog`, `/blog/wp-login.php` -> `/blog`)
+  - Live and history detection fall back to the response body (`/blog/wp-content/...`) when the request URL itself has no WordPress path segment
+  - The derived prefix is only used when the requested page lives under it, so asset-only prefixes such as `/_static` are ignored
+  - Bulk URL import now keeps the URL as typed instead of collapsing it to the root domain
 
 ---
 

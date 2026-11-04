@@ -63,7 +63,7 @@ A Burp Suite extension that detects WordPress sites during web application testi
 - **Plugin/Theme Discovery**: Extracts plugins and themes from HTTP responses and history
 - **Version Detection**: Identifies WordPress core version from multiple sources (meta tags, feeds, API)
 - **Subdomain Support**: All entry points preserve full hostname including subdomains (e.g., `xxx.yyy.io` stays as `xxx.yyy.io`)
-- **Path Preservation**: Context menu preserves full URL path for subdirectory installations (e.g., `https://xxx.yyy.io/blog`)
+- **Path Preservation**: Preserves the URL path and non-standard ports for subdirectory installations (e.g., `https://xxx.yyy.io/blog`, `https://xxx.yyy.io:8443/blog`)
 
 ### Vulnerability Scanning
 - **WPScan API Integration**: Queries the WPScan vulnerability database for:
@@ -161,7 +161,7 @@ A Burp Suite extension that detects WordPress sites during web application testi
 1. Right-click on any request in Burp (HTTP history, Repeater, Intruder, or Proxy)
 2. Select "Scan with WpsScan: [URL]" from the context menu
 3. The URL is added to the scan list with its full hostname and path preserved
-4. Select the new entry in the list and click "Scan Selected" to start the scan
+4. Select the new entry in the list and double-click it to start the scan
 5. Useful for:
    - Scanning specific subdomains when root domain is not WordPress
    - Manually adding URLs that weren't auto-detected
@@ -375,11 +375,20 @@ The extension uses intelligent strategies to minimize API consumption:
 - **Cache-aware**: Skips API calls for recently scanned plugins/themes
 - **Deduplication**: "Scan All" only scans sites without existing results
 
-### URL Normalization
-- Subdomains normalized to root domains (cd.krytter.com → krytter.com)
-- Standard ports (80, 443) removed from URLs
-- HTTP and HTTPS treated as separate entries
-- HTTP history can add sites even if they exist from live scanning
+### URL Handling
+
+How a detected request becomes a scan target:
+
+- **Hostnames are preserved, including subdomains** — `xxx.yyy.io` is scanned as `xxx.yyy.io` and never collapsed to `yyy.io`
+- **Non-standard ports are preserved** — `https://xxx.yyy.io:8443` is scanned on port 8443
+- **Paths are preserved for subdirectory installs** — `example.com/blog` stays `example.com/blog`, so `/blog/wp-json/`, `/blog/xmlrpc.php` and `/blog/?author=N` are probed under the install path
+- **Default ports are dropped** — `:443` on https and `:80` on http are removed
+- **Query strings and fragments are dropped** so probe URLs stay well-formed
+- **Base detection** — the WordPress base comes from the request URL when it contains a WordPress path (`/wp-content/`, `/wp-includes/`, `/wp-admin/`, `/wp-json/`); otherwise it is derived from the response body, and only when the requested page itself lives under that prefix, so asset-only prefixes such as `/_static` are ignored
+- **HTTP and HTTPS are treated as separate entries**
+- **HTTP history can add sites even if they exist from live scanning**
+
+Live scan, HTTP history scan, the context menu and bulk import all use this logic.
 
 ## Troubleshooting
 
@@ -407,6 +416,46 @@ The extension uses intelligent strategies to minimize API consumption:
 - Check WPScan API status: https://wpscan.com/
 - Review rate limits (25/day for free tier)
 - Check extension output for error messages
+
+## Testing
+
+The URL-scoping logic has a reproduction test that runs without Burp and without spending WPScan credits.
+
+### Automated test
+
+`test_url_handling.py` reads `WpsScan.py`, extracts the real URL-handling methods, and drives them against a local HTTP server. No DNS or Burp proxy is involved: three virtual hosts are served on `127.0.0.1` and selected through the `Host` header.
+
+```bash
+python3 test_url_handling.py     # exit 0 = all checks passed
+```
+
+It asserts:
+
+- an apex host with no WordPress markers adds nothing
+- a WordPress site on a subdomain is kept as `xxx.yyy.localhost`, not collapsed to `yyy.localhost`
+- a WordPress install under `/blog` is recorded and scanned as `.../blog`
+- a deep page under `/blog` still resolves to the `/blog` base
+- a page whose assets live under an unrelated prefix (`/_static/wp-content/...`) is not mistaken for a `/_static` install
+- context-menu URLs are trimmed to the install base, and duplicates report "Already Exists"
+- normalization drops default ports and query strings while keeping custom ports and paths
+
+### Manual fixture in Burp
+
+`mock_wp_server.py` serves the same scenario for a hands-on check:
+
+```bash
+python3 mock_wp_server.py        # 127.0.0.1:8899, Ctrl+C to stop
+```
+
+| Request | Expected result |
+| --- | --- |
+| `http://yyy.localhost:8899/` | nothing added (no WordPress markers) |
+| `http://xxx.yyy.localhost:8899/` | `http://xxx.yyy.localhost:8899` |
+| `http://xxx.yyy.localhost:8899/blog/` | `http://xxx.yyy.localhost:8899/blog` |
+
+With both sites in the list, **Scan HTTP History** should report them with `[HTTP HISTORY]` labels, and right-clicking `/blog/wp-login.php` → Extensions should add the `/blog` base (clicking it again reports `Already Exists`).
+
+Both helper scripts listen on loopback only and are not part of the extension itself.
 
 ## Security & Legal
 
@@ -448,9 +497,9 @@ MIT License - see [LICENSE](LICENSE) file for details
 See [CHANGELOG.md](CHANGELOG.md) for version history and updates.
 
 
-**Version**: 1.3.1  
+**Version**: 1.4.0  
 **Author**: Teycir (teycirbensoltane.tn)  
-**Last Updated**: 2025-11-17
+**Last Updated**: 2026-11-04
 
 ---
 

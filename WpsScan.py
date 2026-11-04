@@ -15,6 +15,8 @@ import urllib2
 import time
 from threading import Thread, Lock
 
+__version__ = "1.4.0"
+
 class PatternCache:
     """Lazy-loaded compiled patterns for Jython compatibility"""
     WP_PATTERNS = None
@@ -1352,7 +1354,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
         """Initialize the extension."""
         self._callbacks = callbacks
         self._helpers = callbacks.getHelpers()
-        callbacks.setExtensionName("WpsScan")
+        callbacks.setExtensionName("WpsScan v{}".format(__version__))
         
         self.wp_sites = {}
         self.all_sites_data = []
@@ -1411,6 +1413,11 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
         reset_counter_btn.addActionListener(lambda e: self._reset_api_counter())
         counter_panel.add(reset_counter_btn)
         api_panel.add(counter_panel)
+
+        version_label = JLabel("v{}".format(__version__))
+        version_label.setFont(Font("Dialog", Font.BOLD, 12))
+        version_label.setForeground(Color(117, 117, 117))
+        api_panel.add(version_label)
         self._update_api_counter_display()
         self._update_api_credits_display()
         top_container.add(api_panel, BorderLayout.NORTH)
@@ -1511,8 +1518,8 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
         callbacks.registerContextMenuFactory(self)
         callbacks.addSuiteTab(self)
         
-        self._callbacks.printOutput("[+] WpsScan extension loaded successfully")
-        self._log("[+] WpsScan extension loaded successfully")
+        self._callbacks.printOutput("[+] WpsScan extension loaded successfully (v{})".format(__version__))
+        self._log("[+] WpsScan extension loaded successfully (v{})".format(__version__))
         if self.api_key:
             thread = Thread(target=self._verify_api_key)
             thread.daemon = True
@@ -1522,9 +1529,10 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
             self._log("[!] Warning: WPScan API key not configured. Enter key in UI and click Save Key.")
     
     def getTabCaption(self):  # pylint: disable=invalid-name
-        """Return tab caption."""
+        """Return tab caption with the extension version."""
         count = self.list_model.getSize()
-        return "WpsScan" if count == 0 else "WpsScan ({})".format(count)
+        caption = "WpsScan v{}".format(__version__)
+        return caption if count == 0 else "{} ({})".format(caption, count)
     
     def getUiComponent(self):  # pylint: disable=invalid-name
         """Return UI component."""
@@ -1615,6 +1623,8 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
                 req_url = str(request_info.getUrl())
                 
                 wp_base = self._extract_wp_base(req_url)
+                if not wp_base and response_str:
+                    wp_base = self._extract_wp_base_from_content(response_str, protocol, host, port, req_url)
                 if wp_base:
                     url = wp_base
 
@@ -1676,6 +1686,30 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
             self._callbacks.printError("[!] _extract_wp_base value error: {}".format(str(e)))
         return None
     
+    def _extract_wp_base_from_content(self, content, protocol, host, port, request_url=''):
+        """Derive the WordPress base path from a response body when the request URL has no WP indicator."""
+        try:
+            match = re.search(r'((?:/[A-Za-z0-9._~%+-]+)*)/wp-(?:content|includes|admin|json)/', content)
+            if not match:
+                return None
+
+            prefix = match.group(1) or ''
+            if prefix:
+                # Only trust the prefix when the requested page lives under it, so that
+                # asset-only prefixes (e.g. /_static) are not mistaken for a WordPress install.
+                path_match = re.match(r'https?://[^/]+(/.*)?$', request_url or '')
+                request_path = path_match.group(1) if path_match and path_match.group(1) else '/'
+                request_path = request_path.split('?')[0].split('#')[0]
+                if not (request_path == prefix or request_path.startswith(prefix + '/')):
+                    return None
+
+            default_port = (protocol == 'https' and port == 443) or (protocol == 'http' and port == 80)
+            authority = host if default_port else "{}:{}".format(host, port)
+            return "{}://{}{}".format(protocol, authority, prefix.rstrip('/'))
+        except (AttributeError, TypeError, ValueError) as e:
+            self._callbacks.printError("[!] _extract_wp_base_from_content error: {}".format(str(e)))
+            return None
+
     def _get_root_domain(self, url):
         """Extract root domain from URL (e.g., cd.krytter.com -> krytter.com)"""
         try:
@@ -1692,26 +1726,35 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
             return url
     
     def _normalize_url(self, url, keep_subdomain=False):
-        """Normalize URL to root domain, keeping protocol. If keep_subdomain=True, preserves full hostname."""
-        # Remove port if standard
-        url = re.sub(r':443$', '', url)
-        url = re.sub(r':80$', '', url)
-        # Remove trailing slash
-        url = url.rstrip('/')
-        
-        # Extract protocol and hostname
-        match = re.match(r'(https?)://([^/:]+)', url)
-        if match:
-            protocol = match.group(1)
-            if keep_subdomain:
-                # Keep full hostname (e.g., xxx.yyy.io)
-                return "{}://{}".format(protocol, match.group(2))
-            else:
-                # Normalize to root domain (e.g., yyy.io)
-                root = self._get_root_domain(url)
-                return "{}://{}".format(protocol, root)
-        return url
-    
+        """Normalize URL to root domain, keeping protocol. If keep_subdomain=True, preserves host, port and path."""
+        # Drop query string and fragment, then trailing slashes
+        url = re.split(r'[?#]', url)[0].rstrip('/')
+
+        match = re.match(r'(https?)://([^/:]+)(?::(\d+))?(/.*)?$', url)
+        if not match:
+            return url
+
+        protocol = match.group(1)
+        host = match.group(2)
+        port = match.group(3)
+        path = match.group(4) or ''
+
+        # Drop the port only when it is the default for the protocol
+        if port and ((protocol == 'https' and port == '443') or
+                     (protocol == 'http' and port == '80')):
+            port = None
+
+        if not keep_subdomain:
+            # Normalize to root domain (e.g., yyy.io) and drop path/port
+            host = self._get_root_domain("{}://{}".format(protocol, host))
+            port = None
+            path = ''
+
+        result = "{}://{}".format(protocol, host)
+        if port:
+            result += ":{}".format(port)
+        return result + path
+
     def _add_wp_site(self, url, host, from_history=False, from_import=False, keep_subdomain=False):
         # Normalize to root domain or keep subdomain if specified
         normalized = self._normalize_url(url, keep_subdomain=keep_subdomain)
@@ -1739,7 +1782,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
         elif from_import:
             self.imported_indices.add(len(self.all_sites_data) - 1)
         
-        self._callbacks.setExtensionName("WpsScan ({})".format(len(self.wp_sites)))
+        self._callbacks.setExtensionName("WpsScan v{} ({})".format(__version__, len(self.wp_sites)))
         self._callbacks.printOutput("[+] WordPress detected: {}".format(normalized))
         self._log("[+] WordPress detected: {}".format(normalized))
     
@@ -2149,7 +2192,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
             self._log("[!] No scan results available to export. Please scan sites first.")
             JOptionPane.showMessageDialog(
                 self._panel,
-                "No scan results available to export.\n\nPlease:\n1. Select a WordPress site from the list\n2. Double-click or use 'Scan Selected' to scan it\n3. Try exporting again after scan completes",
+                "No scan results available to export.\n\nPlease:\n1. Select a WordPress site from the list\n2. Double-click the site to scan it\n3. Try exporting again after scan completes",
                 "No Results to Export",
                 JOptionPane.INFORMATION_MESSAGE
             )
@@ -2383,7 +2426,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
         for d in filtered:
             self.list_model.addElement(d["key"])
         
-        self._callbacks.setExtensionName("WpsScan ({})".format(len(filtered)))
+        self._callbacks.setExtensionName("WpsScan v{} ({})".format(__version__, len(filtered)))
     
     def _refresh_list(self):
         self._apply_filters()
@@ -2473,6 +2516,8 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
                         url = "{}://{}:{}".format(protocol, host, port)
                     
                     wp_base = self._extract_wp_base(req_url)
+                    if not wp_base and response_str:
+                        wp_base = self._extract_wp_base_from_content(response_str, protocol, host, port, req_url)
                     if wp_base:
                         url = wp_base
                     
@@ -2532,8 +2577,14 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
             )
     
     def _manual_scan_url(self, url):
-        """Manually add a URL for scanning (preserves subdomain)"""
+        """Manually add a URL for scanning (preserves subdomain, port and path)"""
         try:
+            # Reduce a deep request URL to the WordPress base (e.g. /blog)
+            wp_base = self._extract_wp_base(url)
+            if wp_base:
+                url = wp_base
+            url = re.sub(r'/(wp-login\.php|xmlrpc\.php|wp-cron\.php|wp-signup\.php|readme\.html)$', '', url)
+
             # Extract host from URL
             match = re.match(r'https?://([^/:]+)', url)
             if not match:
@@ -2541,37 +2592,36 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
                 return
 
             host = match.group(1)
+            normalized = self._normalize_url(url, keep_subdomain=True)
 
             # Check if URL already exists
-            normalized = self._normalize_url(url, keep_subdomain=True)
             if normalized in self.wp_sites:
                 JOptionPane.showMessageDialog(
                     self._panel,
                     "{} is already in the scan list.\n\n"
-                    "Select it from the list and click 'Scan Selected' to scan it.".format(url),
+                    "Select it in the list and double-click to scan.".format(normalized),
                     "Already Exists",
                     JOptionPane.INFORMATION_MESSAGE
                 )
                 return
 
-            # Add site with subdomain preserved
-            self._add_wp_site(url, host, from_history=False, from_import=False, keep_subdomain=True)
+            # Add site with subdomain, port and path preserved
+            self._add_wp_site(normalized, host, from_history=False, from_import=False, keep_subdomain=True)
 
-            self._log("[+] Manually added: {}".format(url))
-            self._callbacks.printOutput("[+] Manually added WordPress site: {}".format(url))
+            self._log("[+] Manually added: {}".format(normalized))
+            self._callbacks.printOutput("[+] Manually added WordPress site: {}".format(normalized))
 
             JOptionPane.showMessageDialog(
                 self._panel,
                 "Added {} to scan list.\n\n"
-                "Select it from the list and click 'Scan Selected' to scan it.\n\n"
-                "This URL will be scanned with its full hostname and path preserved.".format(url),
+                "Select it in the list and double-click to scan.\n\n"
+                "This URL is scanned with its full hostname and path preserved.".format(normalized),
                 "Site Added",
                 JOptionPane.INFORMATION_MESSAGE
             )
         except Exception as e:
             self._callbacks.printError("[!] Manual scan error: {}".format(str(e)))
 
-    
     def _log(self, message):
         """Add message to log area"""
         def update_ui():
@@ -2590,7 +2640,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
             self.wp_sites.clear()
             self.all_sites_data = []
             self.list_model.clear()
-            self._callbacks.setExtensionName("WpsScan")
+            self._callbacks.setExtensionName("WpsScan v{}".format(__version__))
     
     def _get_today_date(self):
         return SimpleDateFormat("yyyy-MM-dd").format(Date())
@@ -2764,7 +2814,7 @@ class BurpExtender(IBurpExtender, ITab, IHttpListener, IContextMenuFactory):
                     from urllib.parse import urlparse
                 parsed = urlparse(url)
                 host = parsed.hostname if hasattr(parsed, 'hostname') else parsed.netloc.split(':')[0]
-                self._add_wp_site(url, host, from_history=False, from_import=True)
+                self._add_wp_site(url, host, from_history=False, from_import=True, keep_subdomain=True)
                 imported += 1
                 self._log("[+] WordPress confirmed: {}".format(url))
             else:
